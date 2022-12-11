@@ -1,5 +1,5 @@
 import requests
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect
 import psycopg2
 
 app = Flask(__name__)
@@ -12,26 +12,35 @@ conn = psycopg2.connect(database="service_db",
 
 cursor = conn.cursor()
 
-@app.route('/login/', methods=['GET'])
-def index():
+@app.route('/login/', methods=['POST', 'GET'])
+def login():
+    if request.method =='POST':
+        if request.form.get("login"):
+            username = request.form.get('username')
+            password =request.form.get('password')
+            cursor.execute("SELECT * FROM service.usersWHERE login=%s ANDpassword=%s", (str(username), str(password)))
+            records = list(cursor.fetchall())
+            return render_template('account.html',full_name=records[0][1])
+        elif request.form.get("registration"):
+            return redirect("/registration/")
     return render_template('login.html')
 
-@app.route('/login/', methods=['POST'])
-def login():
-    username = request.form.get('username')
-    password = request.form.get('password')
-    if username=="":
-        return "Введите логин"
-    elif password =="":
-        return "Введите пароль"
-    else:
-        try:
-            cursor.execute("SELECT * FROM service.users WHERE login=%s AND password=%s", (str(username), str(password)))
-            records = list(cursor.fetchall())
-            return render_template('account.html', full_name=records[0][1], login=records[0][2], password=records[0][3])
-        except Exception as E:
-            print(E)
-            return "Вы не зарегистрированы"
+@app.route('/registration/', methods=['POST', 'GET'])
+def registration():
+    if request.method =='POST':
+        name = request.form.get('name')
+        if name == "":
+            return("Введите Имя")
+        login = request.form.get('login')
+        if login == "":
+            return("Введите логин")
+        password = request.form.get('password')
+        if password == "":
+            return("Введите пароль")
+        cursor.execute('INSERT INTO service.users(full_name, login, password) VALUES(%s, %s, %s);',(str(name), str(login), str(password)))
+        conn.commit()
+        return redirect('/login/')
+    return render_template('registration.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
